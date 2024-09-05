@@ -1,6 +1,8 @@
 import os
 import socket
 import threading
+import time
+
 import rsa
 
 HOST = "127.0.0.1"
@@ -14,6 +16,9 @@ receive_mode = True
 
 public_key_data = client.recv(1024)
 public_key = rsa.PublicKey.load_pkcs1(public_key_data)
+
+time.sleep(5)
+print("You are connected!")
 
 
 def client_receive():
