@@ -7,6 +7,7 @@ import rsa
 
 HOST = "127.0.0.1"
 PORT = 33994
+ENCODING = "utf-8"
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((HOST, PORT))
@@ -28,10 +29,9 @@ def client_receive():
     while True:
         try:
             encrypted_message = client.recv(1024)
-            message = rsa.decrypt(encrypted_message, private_key).decode("utf-8")
+            message = rsa.decrypt(encrypted_message, private_key).decode(ENCODING)
             if message == "nickname?":
-                encrypted_nickname = rsa.encrypt(nickname.encode("utf-8"), public_key)
-                client.send(encrypted_nickname)
+                send_encrypted_message(nickname, public_key)
             elif message == "clear":
                 clear_console()
             else:
@@ -52,11 +52,11 @@ def client_send():
         if message == "/disconnect":
             global receive_mode
             receive_mode = False
-            client.send(rsa.encrypt(message.encode("utf-8"), public_key))
+            send_encrypted_message(message, public_key)
             client.close()
             break
         else:
-            client.send(rsa.encrypt(message.encode("utf-8"), public_key))
+            send_encrypted_message(message, public_key)
 
 
 def clear_console():
@@ -66,8 +66,14 @@ def clear_console():
         os.system("clear")
 
 
-receive_thread = threading.Thread(target=client_receive)
-receive_thread.start()
+def send_encrypted_message(message, pub_key):
+    encrypted_message = rsa.encrypt(message.encode(ENCODING), pub_key)
+    client.send(encrypted_message)
 
-send_thread = threading.Thread(target=client_send)
-send_thread.start()
+
+if __name__ == '__main__':
+    receive_thread = threading.Thread(target=client_receive)
+    receive_thread.start()
+
+    send_thread = threading.Thread(target=client_send)
+    send_thread.start()
