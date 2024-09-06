@@ -21,10 +21,14 @@ setup_database()
 with open("private_key.pem", "rb") as private_file:
     private_key = rsa.PrivateKey.load_pkcs1(private_file.read())
 
+with open("public_key.pem", "rb") as public_file:
+    public_key = rsa.PublicKey.load_pkcs1(public_file.read())
+
 
 def broadcast(message, room, ip, user_message=False, plain_message=None, plain_user=None):
+    encrypted_message = rsa.encrypt(message.encode("utf-8"), public_key)
     for client in chatrooms[room]:
-        client[0].send(message)
+        client[0].send(encrypted_message)
     if user_message:
         print(f"{get_timestamp()} [{plain_user} | {ip}] in {room}: {plain_message}")
 
@@ -33,6 +37,7 @@ def handle_client(client, ip):
     while True:
         try:
             encrypted_message = client.recv(1024)
+
             message = rsa.decrypt(encrypted_message, private_key).decode("utf-8")
             if not message:
                 break
@@ -43,11 +48,13 @@ def handle_client(client, ip):
                 if room_name not in chatrooms:
                     chatrooms[room_name] = []
                     add_room(room_name)
-                    client.send(f"Chatroom {room_name} has been created!".encode("utf-8"))
+                    room_created_alert = f"Chatroom {room_name} has been created!".encode("utf-8")
+                    client.send(rsa.encrypt(room_created_alert, public_key))
                     print(log_user_info(get_name_by_client(client), ip) + f" Created chatroom '{room_name}'.")
 
                 else:
-                    client.send("Chatroom already exists.".encode("utf-8"))
+                    room_created_alert = "Chatroom already exists".encode("utf-8")
+                    client.send(rsa.encrypt(room_created_alert, public_key))
                     print(log_user_info(get_name_by_client(client),
                                         ip) + f" Tried creating chatroom '{room_name}' but it already existed.")
 
@@ -64,27 +71,30 @@ def handle_client(client, ip):
                         broadcast_clear(client)
                         chat_history = get_chat_history(room_name)
                         for msg in chat_history:
-                            client.send(f"{msg[2]} {msg[0]}: {msg[1]}\n".encode('utf-8'))
+                            formatted_msg = f"{msg[2]} {msg[0]}: {msg[1]}\n".encode('utf-8')
+                            client.send(rsa.encrypt(formatted_msg, public_key))
+                            time.sleep(0.1)
                         chatrooms[room_name].append((client, get_name_by_client(client)))
                         broadcast(
-                            f"{get_name_by_client(client)} has joined the Chatroom {room_name}.".encode("utf-8"),
+                            f"{get_name_by_client(client)} has joined the Chatroom {room_name}.",
                             room_name, ip)
                         print(log_user_info(get_name_by_client(client),
                                             ip) + f" Has joined the Chatroom {room_name}")
                     else:
-                        client.send("Please leave your current Chatroom before joining a new one.".encode("utf-8"))
+                        client.send(rsa.encrypt("Please leave your current Chatroom before joining a new one."
+                                                .encode("utf-8"), public_key))
                         print(log_user_info(get_name_by_client(client),
                                             ip) + f" Tried joining the Chatroom {room_name} but is currently active "
                                                   f"in another Chatroom.")
                 else:
-                    client.send(f"Chatroom {room_name} doesnt exist.".encode("utf-8"))
+                    client.send(rsa.encrypt(f"Chatroom {room_name} doesnt exist.".encode("utf-8"), public_key))
                     print(log_user_info(get_name_by_client(client),
                                         ip) + f" Tried joining the Chatroom {room_name} but it doesnt exist.")
 
             # give overview over existing rooms
             elif message.startswith("/rooms"):
                 room_overview = "\n".join([r[0] for r in get_all_rooms()])
-                client.send(room_overview.encode("utf-8"))
+                client.send(rsa.encrypt(room_overview.encode("utf-8"), public_key))
                 print(log_user_info(get_name_by_client(client),
                                     ip) + f" Requested an overview over all active rooms")
 
@@ -94,7 +104,7 @@ def handle_client(client, ip):
                     if (client, get_name_by_client(client)) in chatrooms[room]:
                         chatrooms[room].remove((client, get_name_by_client(client)))
                         broadcast_clear(client)
-                        broadcast(f"{get_name_by_client(client)} has left the Chatroom.".encode("utf-8"), room,
+                        broadcast(f"{get_name_by_client(client)} has left the Chatroom.", room,
                                   ip)
                         print(log_user_info(get_name_by_client(client),
                                             ip) + f" Left the Chatroom {room}  ")
@@ -118,10 +128,10 @@ def handle_client(client, ip):
                         client_active = True
                         curr_room = room
                 if client_active:
-                    broadcast(formatted_msg.encode("utf-8"), curr_room, ip, True, message, client_name)
+                    broadcast(formatted_msg, curr_room, ip, True, message, client_name)
                     save_message(curr_room, client_name, message, timestamp)
                 else:
-                    client.send("Please join a Room before sending messages.".encode("utf-8"))
+                    client.send(rsa.encrypt("Please join a Room before sending messages.".encode("utf-8"), public_key))
 
         except Exception as err:
             print(f"Error: {err}")
@@ -141,7 +151,7 @@ def disconnect_client(client, name, ip):
         nicknames.remove(name)
 
     try:
-        client.send("You have disconnected.".encode("utf-8"))
+        client.send(rsa.encrypt("You have disconnected.".encode("utf-8"), public_key))
     except:
         pass
 
@@ -164,7 +174,7 @@ def get_timestamp():
 
 
 def broadcast_clear(client):
-    client.send("clear".encode("utf-8"))
+    client.send(rsa.encrypt("clear".encode("utf-8"), public_key))
 
 
 def load_rooms():
@@ -174,9 +184,9 @@ def load_rooms():
 
 
 def send_public_key(client):
-    with open("public_key.pem", "rb") as public_file:
-        public_key = public_file.read()
-    client.send(public_key)
+    with open("public_key.pem", "rb") as public_f:
+        public_key_info = public_f.read()
+    client.send(public_key_info)
 
 
 def receive():
@@ -187,8 +197,9 @@ def receive():
         print(f"connection is established with {address}")
         send_public_key(client)
         time.sleep(7)
-        client.send("nickname?".encode("utf-8"))
-        nickname = client.recv(1024).decode("utf-8")
+        client.send(rsa.encrypt("nickname?".encode("utf-8"), public_key))
+        encrypted_nickname = client.recv(1024)
+        nickname = rsa.decrypt(encrypted_nickname, private_key).decode("utf-8")
         nicknames.append(nickname)
         clients.append(client)
         thread = threading.Thread(target=handle_client, args=(client, address[0]))

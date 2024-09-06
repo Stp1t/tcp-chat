@@ -17,6 +17,9 @@ receive_mode = True
 public_key_data = client.recv(1024)
 public_key = rsa.PublicKey.load_pkcs1(public_key_data)
 
+with open("private_key.pem", "rb") as private_file:
+    private_key = rsa.PrivateKey.load_pkcs1(private_file.read())
+
 time.sleep(5)
 print("You are connected!")
 
@@ -24,9 +27,11 @@ print("You are connected!")
 def client_receive():
     while True:
         try:
-            message = client.recv(1024).decode("utf-8")
+            encrypted_message = client.recv(1024)
+            message = rsa.decrypt(encrypted_message, private_key).decode("utf-8")
             if message == "nickname?":
-                client.send(nickname.encode("utf-8"))
+                encrypted_nickname = rsa.encrypt(nickname.encode("utf-8"), public_key)
+                client.send(encrypted_nickname)
             elif message == "clear":
                 clear_console()
             else:
