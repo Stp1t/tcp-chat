@@ -1,5 +1,5 @@
 # TCP Chat
-This project is a simple terminal-based chat application built on the TCP Protocol. It encrypts all messages using <a href=https://en.wikipedia.org/wiki/RSA_(cryptosystem)> RSA </a> encryption. Chat histories are stored in an SQLite database.
+This project is a simple terminal-based chat app built on the TCP Protocol. It encrypts all messages using <a href=https://en.wikipedia.org/wiki/RSA_(cryptosystem)> RSA </a> encryption. Chat histories are stored in an SQLite database.
  ## Running the Project
 ### 1. Clone the project
 Use the following command:
