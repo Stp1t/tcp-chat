@@ -4,6 +4,7 @@ import time
 from database import setup_database, save_message, get_chat_history, add_room, get_all_rooms
 from datetime import datetime
 import rsa
+import json
 
 HOST = ""
 PORT = 33994
@@ -185,7 +186,7 @@ def receive():
         print("Server is running and listening...")
         client, address = server.accept()
         print(f"connection is established with {address}")
-        send_public_key(client)
+        send_keys(client)
         time.sleep(7)
         client.send(rsa.encrypt("nickname?".encode(ENCODING), public_key))
         encrypted_nickname = client.recv(1024)
@@ -220,10 +221,17 @@ def load_rooms():
         chatrooms[room_name[0]] = []
 
 
-def send_public_key(client):
+def send_keys(client):
+    with open("private_key.pem", "rb") as private_f:
+        private_key_info = private_f.read()
     with open("public_key.pem", "rb") as public_f:
         public_key_info = public_f.read()
-    client.send(public_key_info)
+    keys = {
+        'private_key': private_key_info.decode('utf-8'),
+        'public_key': public_key_info.decode('utf-8')
+    }
+    keys_serialized = json.dumps(keys).encode('utf-8')
+    client.send(keys_serialized)
 
 
 def send_encrypted_message(client, message, pub_key):

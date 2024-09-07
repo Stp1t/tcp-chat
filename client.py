@@ -2,7 +2,7 @@ import os
 import socket
 import threading
 import time
-
+import json
 import rsa
 
 HOST = "127.0.0.1"
@@ -15,11 +15,10 @@ client.connect((HOST, PORT))
 nickname = input("Please enter your Nickname: ")
 receive_mode = True
 
-public_key_data = client.recv(1024)
-public_key = rsa.PublicKey.load_pkcs1(public_key_data)
-
-with open("private_key.pem", "rb") as private_file:
-    private_key = rsa.PrivateKey.load_pkcs1(private_file.read())
+keys_serialized = client.recv(4096)
+keys = json.loads(keys_serialized.decode(ENCODING))
+private_key = rsa.PrivateKey.load_pkcs1(keys['private_key'].encode(ENCODING))
+public_key = rsa.PublicKey.load_pkcs1(keys['public_key'].encode(ENCODING))
 
 time.sleep(5)
 print("You are connected!")
